@@ -166,6 +166,7 @@ endif()
 
 if(SURGE_BUILD_FX AND NOT SURGE_SKIP_JUCE_FOR_RACK)
   add_subdirectory(surge-fx)
+  add_subdirectory(surge-single-fx)
 endif()
 
 if(SURGE_BUILD_XT AND NOT SURGE_SKIP_JUCE_FOR_RACK)

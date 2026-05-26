@@ -1,0 +1,12 @@
+diff --git a/modules/juce_audio_devices/native/juce_Midi_linux.cpp b/modules/juce_audio_devices/native/juce_Midi_linux.cpp
+index e034d0e062..e2a707eda3 100644
+--- a/modules/juce_audio_devices/native/juce_Midi_linux.cpp
++++ b/modules/juce_audio_devices/native/juce_Midi_linux.cpp
+@@ -614,6 +614,7 @@ struct AlsaMidiHelpers
+             : listener (l), handle (h)
+         {
+             jassert (handle != nullptr);
++            cachedEndpoints = findEndpoints (handle.get());
+         }
+
+         void pushUmp (int port, ump::View view, double time) override

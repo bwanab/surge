@@ -1,0 +1,38 @@
+Bug: MidiInput::getAvailableDevices() returns empty list on Linux when devices are already connected at startup
+
+Problem
+
+- On Linux (ALSA backend), MidiInput::getAvailableDevices() returns an empty list when MIDI
+  devices are already connected before the application starts.
+- The root cause is in AlsaMidiHelpers::Client (juce_Midi_linux.cpp): cachedEndpoints is
+  initialized empty at construction time and is only populated by notifyPortsChanged(), which
+  fires in response to ALSA sequencer hotplug events (SND_SEQ_EVENT_PORT_START,
+  SND_SEQ_EVENT_CLIENT_CHANGE, etc.).
+- For devices that are already present when the Client is constructed, no such events are ever
+  generated, so cachedEndpoints remains empty for the lifetime of the application.
+- This manifests in surge-xt-cli as --all-midi-inputs and --list-devices consistently reporting
+  "Found 0 devices!" despite devices being visible in arecordmidi -l and amidi -l.
+- Confirmed on: Raspberry Pi (aarch64), Patchbox OS, ALSA 1.2.8, JUCE 8.
+
+Fix
+
+- Add an initial call to findEndpoints() in the Client constructor body, after handle is
+  initialized:
+
+    Client (ump::EndpointsListener* l, snd_seq_t* h)
+        : listener (l), handle (h)
+    {
+        jassert (handle != nullptr);
+        cachedEndpoints = findEndpoints (handle.get());  // initial scan for already-present devices
+    }
+
+- findEndpoints() is a static method that synchronously enumerates all ALSA sequencer clients
+  and ports, so it is safe to call here before SequencerThread has processed any events.
+- No changes to MidiInput::getAvailableDevices() or the caller are required.
+
+What was ruled out
+
+- Adding a juce::Thread::sleep() delay before getAvailableDevices() in the caller -- does not
+  help because the problem is structural (no initial scan), not a timing race.
+- The UMP stub struct size issue on ALSA 1.2.8 (SND_LIB_VERSION < 1.2.10 guard) -- investigated
+  but not the cause; the code path is already disabled (if (false)).
